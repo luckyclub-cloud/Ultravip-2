@@ -6,7 +6,7 @@
   <title>ULTRAVIPGOLDEN</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon" />
 
-  <!-- ✅ 1 sola fuente de verdad -->
+  <!-- 1 sola fuente de verdad -->
   <script>
     window.LANDING = {
       BRAND: "ULTRAVIP GOLDEN",
@@ -43,7 +43,7 @@
   <link rel="dns-prefetch" href="//connect.facebook.net" />
   <link rel="preload" as="image" href="imagenes/fondo.avif" type="image/avif" fetchpriority="high" />
 
-  <!-- Meta Pixel (snippet oficial). Async, no bloquea render. -->
+  <!-- Meta Pixel -->
   <script>
     !function(f,b,e,v,n,t,s){
       if(f.fbq)return; n=f.fbq=function(){n.callMethod?
@@ -62,7 +62,6 @@
 
       function normEmail(v){ return (v||"").trim().toLowerCase() || undefined; }
 
-      // AR robusto (conservador): respeta si ya viene con 54, limpia 0/15, agrega 54 si quedan 10 dígitos.
       function normPhone(v){
         let d = String(v||"").replace(/\D+/g,"");
         if(!d) return undefined;
@@ -105,13 +104,22 @@
         const u = q("utm_campaign");
         if(u) try{ localStorage.setItem("utm_campaign", u); }catch{}
       })();
+
       function getUTMCampaign(){
-        return q("utm_campaign") || (function(){ try{return localStorage.getItem("utm_campaign")}catch{return null} })() || "ORG";
+        return q("utm_campaign") || (function(){
+          try{return localStorage.getItem("utm_campaign")}catch{return null}
+        })() || "ORG";
       }
 
       // User Data (advanced matching)
-      const userEmail = normEmail(q("em") || q("email") || (function(){ try{return localStorage.getItem("em")}catch{return null} })());
-      const userPhone = normPhone(q("ph") || q("phone") || (function(){ try{return localStorage.getItem("ph")}catch{return null} })());
+      const userEmail = normEmail(q("em") || q("email") || (function(){
+        try{return localStorage.getItem("em")}catch{return null}
+      })());
+
+      const userPhone = normPhone(q("ph") || q("phone") || (function(){
+        try{return localStorage.getItem("ph")}catch{return null}
+      })());
+
       const userFn = (q("fn")||"").trim() || undefined;
       const userLn = (q("ln")||"").trim() || undefined;
       const externalId = getOrCreateExternalId();
@@ -154,7 +162,6 @@
   </script>
 
   <noscript>
-    <!-- BACKUP: si cambiás el PIXEL_ID, acordate de cambiarlo también acá -->
     <img height="1" width="1" style="display:none"
       src="https://www.facebook.com/tr?id=1607450000907400&ev=PageView&noscript=1" />
   </noscript>
@@ -194,19 +201,22 @@
       }
     };
 
-    // ✅ Respeta tu array tal cual lo pegaste
+    // Se conserva el número original
     const FIXED_PHONES = [
-       "5493562671176"// BUSSO
-      
+      "5493562671176" // BUSSO
     ];
 
-    function normalizePhoneDigits(raw){ return String(raw||"").replace(/\D+/g,"").trim(); }
+    function normalizePhoneDigits(raw){
+      return String(raw||"").replace(/\D+/g,"").trim();
+    }
 
     function pickFixed(){
       const pool = (FIXED_PHONES||[])
         .map(normalizePhoneDigits)
         .filter(n => /^\d{8,17}$/.test(n));
+
       if(!pool.length) return null;
+
       const number = pool[Math.floor(Math.random()*pool.length)];
       return { number, meta:{fixed:true} };
     }
@@ -225,6 +235,7 @@
         "¡Buenas Lucas! ¿Me das información sobre cómo empezar?",
         "¡Hola Lucas! ¿Cómo hago para empezar?"
       ];
+
       const base = variantes[Math.floor(Math.random()*variantes.length)];
       return promo_code ? `${base} ${promo_code}` : base;
     }
@@ -237,13 +248,25 @@
       __waInFlight = true;
 
       const picked = __picked || pickFixed();
-      if(!picked){ __waInFlight=false; return; }
+
+      if(!picked){
+        __waInFlight = false;
+        return;
+      }
 
       const cleanPhone = normalizePhoneDigits(picked.number);
-      if(!/^\d{8,17}$/.test(cleanPhone)){ __waInFlight=false; return; }
+
+      if(!/^\d{8,17}$/.test(cleanPhone)){
+        __waInFlight = false;
+        return;
+      }
 
       const M = window.__META || {};
-      const uuid12 = (M.safeUUID ? M.safeUUID() : (Date.now()+""+Math.random())).replace(/-/g,"").slice(0,12);
+
+      const uuid12 = (
+        M.safeUUID ? M.safeUUID() : (Date.now()+""+Math.random())
+      ).replace(/-/g,"").slice(0,12);
+
       const promo_code = (LANDING_CONFIG.PROMO && LANDING_CONFIG.PROMO.ENABLED)
         ? `${LANDING_CONFIG.PROMO.LANDING_TAG}-${uuid12}`
         : "";
@@ -251,13 +274,24 @@
       const mensaje = buildMensaje();
 
       const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(mensaje)}`;
-      let done = false;
-      const goOnce = () => { if(!done){ done=true; window.location.assign(waUrl); } };
 
-      const event_id = (M.safeUUID ? M.safeUUID() : ("evt_"+Date.now()+"_"+Math.random()));
+      // Redirección de respaldo: se ejecuta una sola vez
+      let done = false;
+
+      const goOnce = () => {
+        if(!done){
+          done = true;
+          window.location.assign(waUrl);
+        }
+      };
+
+      const event_id = M.safeUUID
+        ? M.safeUUID()
+        : ("evt_"+Date.now()+"_"+Math.random());
 
       try{
         if(window.fbq){
+
           // Re-set userData justo antes del evento
           try{
             fbq("set","userData",{
@@ -269,7 +303,9 @@
             });
           }catch{}
 
-          fbq("track","Contact",{
+          // CAMBIO: registrar el clic como evento personalizado,
+          // sin contabilizarlo como un contacto confirmado.
+          fbq("trackCustom","WhatsAppClick",{
             content_name: "Botón WhatsApp",
             content_category: "LeadGen",
             source: source,
@@ -284,11 +320,13 @@
             eventCallback: goOnce
           });
 
+          // No esperar indefinidamente al píxel para abrir WhatsApp
           setTimeout(goOnce, 250);
           return;
         }
       }catch{}
 
+      // Si el píxel no está disponible o falla, abrir WhatsApp igualmente
       goOnce();
     }
 
@@ -296,6 +334,7 @@
       __picked = pickFixed();
 
       const btn = document.getElementById("whatsappButton");
+
       if(btn){
         btn.addEventListener("click", (e)=>{
           e.preventDefault();
@@ -303,8 +342,15 @@
         }, { passive:false });
       }
 
-      window.addEventListener("pageshow", ()=>{ __waInFlight=false; });
-      window.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") __waInFlight=false; });
+      window.addEventListener("pageshow", ()=>{
+        __waInFlight = false;
+      });
+
+      window.addEventListener("visibilitychange", ()=>{
+        if(document.visibilityState === "visible"){
+          __waInFlight = false;
+        }
+      });
     });
   </script>
 </body>
